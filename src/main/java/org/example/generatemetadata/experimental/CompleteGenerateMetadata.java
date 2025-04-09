@@ -3,6 +3,7 @@ package org.example.generatemetadata.experimental;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.maven.cli.MavenCli;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
@@ -21,32 +22,57 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CompleteGenerateMetadata {
+    /**
+     * ** Please change the following list according to your needs:
+     * 1. projectName
+     * 2. projectPath
+     * 3. repositoryPath
+     * 4. parentOutputPath
+     *
+     * ** Adjust the output/input file name as you want, these are the file variable:
+     * 1. dependenciesListTxtPath
+     * 2. serviceReflectionPath
+     * 3. serviceProxyPath
+     * 4. importReflectionPath
+     * 5. dependenciesReflectionPath
+     * 6. dependenciesProxyPath
+     *
+     * ** If you want to use the experimental feature, please change the following list according to your needs:
+     * 1. excludedImportPrefix
+     * 2. dependenciesListTxtPath
+     * **/
+
     // Properties
     public static String projectName = "recharge-history";
     public static String excludedImportPrefix = "import id.co.xl."+ projectName +".";
 
-    static final String RESET = "\033[0m";
-    static final String CYAN = "\033[0;36m";
-    static final String PURPLE = "\033[0;35m";
+    // Docs
+    static int count = 0;
 
     // Input
     public static Path projectPath = Paths.get("C:\\Users\\agusilaban\\xl\\" + projectName);
     public static Path repositoryPath = Paths.get("C:\\Users\\agusilaban\\.m2\\repository\\");
+    public static Path dependenciesListTxtPath = Paths.get(projectPath + "\\dependencies.txt");
 
-    public static Path dependenciesListTxtPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\dependencies.txt");
-    public static Path dependenciesListTxtPath2 = Paths.get("C:\\Users\\agusilaban\\xl\\"+projectName+"\\dependencies.txt");
-
+    // Parent Output
+    public static Path parentOutputPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\experimental");
+    
     // Output
-    public static Path serviceReflectionPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\experimental\\project-reflect-config.json");
-    public static Path serviceProxyPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\experimental\\proxy-config.json");
-    public static Path libraryReflectionPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\experimental\\library-reflect-config.json");
-    public static Path importReflectionPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\experimental\\import-reflect-config.json");
+    public static Path serviceReflectionPath = Paths.get(parentOutputPath + "\\project-reflect-config.json");
+    public static Path serviceProxyPath = Paths.get(parentOutputPath + "\\proxy-config.json");
+    public static Path importReflectionPath = Paths.get(parentOutputPath + "\\import-reflect-config.json");
+    public static Path dependenciesReflectionPath = Paths.get(parentOutputPath + "\\dependency-reflect-config.json");
+    public static Path dependenciesProxyPath = Paths.get(parentOutputPath + "\\dependency-proxy-config.json");
 
     // Final Output
     public static Path reflectConfigPath = Paths.get("");
     public static Path proxyConfigPath = Paths.get("");
 
     public static void main(String[] args) throws IOException {
+
+        // Todo: Generate Dependencies List (DONE)
+        generateMavenDependencyList(projectPath);
+
         // Todo: Ensure Paths (DONE)
         isValidPath();
 
@@ -61,9 +87,9 @@ public class CompleteGenerateMetadata {
         listImportReflection(projectPath);
 
         // Todo: List Libraries Reflections (DONE)
-        // Todo: List Libraries Used Method Reflections
-        // loadingScreen(); // in case you're bored
-        System.out.println(PURPLE + "====   EXPERIMENTAL FOR DEPENDENCIES IN POM   ====" + RESET);
+        // Todo: List Libraries Used Method Reflections (PENDING)
+         loadingScreen(); // in case you're bored
+        System.out.println(ConsoleColors.PURPLE + "====   EXPERIMENTAL FOR DEPENDENCIES IN POM   ====" + ConsoleColors.RESET);
         listAllDependencies();
 
         // Todo: Generate Reflect Config JSON
@@ -72,7 +98,7 @@ public class CompleteGenerateMetadata {
 
     // Capture
     public static void listServiceReflection(Path projectPath) {
-        System.out.println(CYAN + "\n=== STARTING REFLECTING PROJECT CLASSES ===" + RESET);
+        System.out.println(ConsoleColors.CYAN + "\n=== STARTING REFLECTING PROJECT CLASSES ===" + ConsoleColors.RESET);
         Pattern packagePattern = Pattern.compile("^package\\s+([a-zA-Z0-9_.]+);");
         Pattern classPattern = Pattern.compile("^(public\\s+)?(static\\s+)?class\\s+(\\w+)");
         try {
@@ -110,11 +136,11 @@ public class CompleteGenerateMetadata {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        System.out.println("\n \t Project classes reflection written to " + serviceReflectionPath.toAbsolutePath());
-        System.out.println(CYAN + "\n=== REFLECTING PROJECT CLASSES FINISHED ===\n" + RESET);
+        System.out.println("\t Project classes reflection written to " + serviceReflectionPath.toAbsolutePath());
+        System.out.println(ConsoleColors.CYAN + "=== REFLECTING PROJECT CLASSES FINISHED ===\n" + ConsoleColors.RESET);
     }
     public static void listServiceProxy(Path projectPath){
-        System.out.println(CYAN + "\n=== STARTING REFLECTING PROJECT INTERFACE ===" + RESET);
+        System.out.println(ConsoleColors.CYAN + "\n=== STARTING REFLECTING PROJECT INTERFACE ===" + ConsoleColors.RESET);
         Pattern packagePattern = Pattern.compile("^package\\s+([a-zA-Z0-9_.]+);");
         Pattern interfacePattern = Pattern.compile("^(public\\s+)?interface\\s+(\\w+)");
         try {
@@ -153,11 +179,11 @@ public class CompleteGenerateMetadata {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        System.out.println("\n \t Project interface reflection written to " + serviceProxyPath.toAbsolutePath());
-        System.out.println(CYAN + "\n=== REFLECTING PROJECT INTERFACE FINISHED ===\n" + RESET);
+        System.out.println("\t Project interface reflection written to " + serviceProxyPath.toAbsolutePath());
+        System.out.println(ConsoleColors.CYAN + "=== REFLECTING PROJECT INTERFACE FINISHED ===\n" + ConsoleColors.RESET);
     }
     public static void listAllDependencies(){
-        System.out.println(CYAN + "====   STARTING TO VERIFY DEPENDENCIES VERSION   ====" + RESET);
+        System.out.println(ConsoleColors.CYAN + "====   STARTING TO VERIFY DEPENDENCIES VERSION   ====" + ConsoleColors.RESET);
         try {
             Path pomPath = Paths.get(projectPath.toString()+ "\\pom.xml");
             MavenXpp3Reader reader = new MavenXpp3Reader();
@@ -196,12 +222,13 @@ public class CompleteGenerateMetadata {
                     newLibrary = library + ":" + jarVersion;
                     versionedLibraries.add(newLibrary);
                     System.out.println("\nUnversioned dependency's version already discovered on list");
-                    System.out.println("\t " + library + ":" + jarVersion + "\n");
+                    System.out.println("\t " + library + ":" + jarVersion);
                 }
             }
-            System.out.println(CYAN + "====   VERIFY DEPENDENCIES VERSION FINISHED   ====\n" + RESET);
+            System.out.println(ConsoleColors.CYAN + "====   VERIFY DEPENDENCIES VERSION FINISHED   ====\n" + ConsoleColors.RESET);
 
             listDependenciesReflection(versionedLibraries);
+            System.out.println("Recorded Class -> " + count);
 
 //            for (String fixedLibrary : versionedLibraries){
 //                System.out.println(fixedLibrary);
@@ -225,25 +252,17 @@ public class CompleteGenerateMetadata {
             e.printStackTrace();
         }
     }
-
-    public class ReflectClass {
-        public String name;
-        public List<ReflectMethod> params;
-    }
-    public class ReflectMethod {
-        public String name;
-        public List<String> parameterTypes;
-    }
-
     public static void listDependenciesReflection(List<String> libraryPaths){
-        System.out.println(CYAN + "\n=== STARTING REFLECTING PROJECT'S DEPENDENCIES FROM POM ===" + RESET);
+        System.out.println(ConsoleColors.CYAN + "\n=== STARTING REFLECTING PROJECT'S DEPENDENCIES FROM POM ===" + ConsoleColors.RESET);
         try {
             List<String> validJars = new ArrayList<>();
             List<String> invalidJars = new ArrayList<>();
             String jarPath = "";
             String dependencyPath = "";
             Map<String, Map<String, String>> completeDependenciesMap = new HashMap<>();
-            // ClassName (MethodName (ParamName (DataType)))
+            List<String> validClassList = new ArrayList<>();
+            List<String> invalidClassList = new ArrayList<>();
+            List<String> interfaceList = new ArrayList<>();
 
             for (String libraryPath : libraryPaths) {
                 dependencyPath = constructJarName(libraryPath);
@@ -253,16 +272,14 @@ public class CompleteGenerateMetadata {
                 File jarFile = new File(jarPath);
                 if (!jarFile.exists()) {
                     invalidJars.add(jarPath);
-                    System.out.println("[ERR]No JAR file found at: " + jarPath + "\n");
+                    System.out.println(ConsoleColors.RED + "[ERR]" + ConsoleColors.RESET + "No JAR file found at: " + jarPath);
                 } else {
                     validJars.add(jarPath);
-                    System.out.println("[OK] JAR file found at: " + jarPath + "\n");
+                    System.out.println(ConsoleColors.GREEN + "[OK]" + ConsoleColors.RESET + " JAR file found at: " + jarPath + "\n");
                 }
             }
 
             for (String validJar : validJars) {
-                List<String> validClassList = new ArrayList<>();
-                List<String> invalidClassList = new ArrayList<>();
                 File jarFile = new File(validJar);
                 try {
                     JarFile jar = new JarFile(jarFile);
@@ -277,69 +294,55 @@ public class CompleteGenerateMetadata {
                             .forEach(entry -> {
                                 String className = entry.getName().replace("/", ".").replace(".class", "");
                                 Map<String, String> methodList = new HashMap<>();
-                                List<String> paramList = new ArrayList<>();
                                 try {
+                                    Boolean isInterface = false;
                                     Class<?> clazz = classLoader.loadClass(className);
-                                    validClassList.add(clazz.getName());
-                                    Arrays.stream(clazz.getDeclaredMethods())
-                                            .forEach(method -> {
-                                                String params = Arrays.stream(method.getParameters())
-                                                        .map(p -> p.getType().getClass().getName()).collect(Collectors.toList()).toString();
+                                    if (clazz.isInterface()) {
+                                        isInterface = true;
+                                        interfaceList.add(clazz.getName());
+                                    } else {
+                                        validClassList.add(clazz.getName());
+                                        Arrays.stream(clazz.getDeclaredMethods())
+                                                .forEach(method -> {
+                                                    String params = Arrays.stream(method.getParameters())
+                                                            .map(p -> p.getType().getClass().getName()).collect(Collectors.toList()).toString();
 //                                                System.out.println("  - " + method.getName() + " -> params: [" + params + "]");
-                                                methodList.put(method.getName(), params);
-                                            });
+                                                    methodList.put(method.getName(), params);
+                                                });
 //                                    methodList.forEach((key, value) -> System.out.println("method name : " + key + " -> params :" + value));
-                                    completeDependenciesMap.put(className, methodList);
+                                        completeDependenciesMap.put(className, methodList);
+                                    }
                                 } catch (Throwable e) {
                                     invalidClassList.add(className);
                                 }
                             });
 
-                    completeDependenciesMap.forEach(
-                            (key, value) -> {
-                                System.out.println("\nClass Name: " + key);
-                                value.forEach(
-                                        (methodKey, methodValue) -> System.out.println(
-                                                "name: " + methodKey + "\n" + "parameterTypes: " + methodValue
-                                        ));
-                            });
+//                    completeDependenciesMap.forEach(
+//                            (key, value) -> {
+//                                System.out.println("\nClass Name: " + key);
+//                                value.forEach(
+//                                        (methodKey, methodValue) -> System.out.println(
+//                                                "name: " + methodKey + "\n" + "parameterTypes: " + methodValue
+//                                        ));
+//                            });
 
-                    // TODO : From this line should be a block of code for writing reflection into JSON format
-                    System.out.println("=== Class List for "+validJar+" ===");
-
-                    System.out.println("=== Valid Classes ===");
-                    /**
-                    for (String validClass : validClassList) {
-                        System.out.println("Valid class: " + validClass);
-                    }
-                    **/
-                    System.out.println("Total classes scanned: " + validClassList.size() + "\n");
-
-
-                    System.out.println("=== Invalid Classes ===");
-                    /**
-                    for (String invalidClass : invalidClassList) {
-                        System.out.println("Invalid class: " + invalidClass);
-                    }
-                    **/
-                    System.out.println("Total classes failed to scanned: " + invalidClassList.size() + "\n");
-                    // TODO : To this line should be a block of code for writing reflection into JSON format
-
+                    writeReflectConfig(validClassList, dependenciesReflectionPath);
+                    writeProxyConfig(interfaceList, dependenciesProxyPath);
+                    count += completeDependenciesMap.size();
                 } catch (IOException e) {
                     System.err.println("Error reading JAR file: " + e.getMessage());
                 }
             }
-
         } catch (Exception e) {
             System.err.println("Unexpected error: " + e.getMessage());
             e.printStackTrace();
         }
-        System.out.println(CYAN + "=== REFLECTING PROJECT'S DEPENDENCIES FROM POM FINISHED ===" + RESET);
+        System.out.println(ConsoleColors.CYAN + "=== REFLECTING PROJECT'S DEPENDENCIES FROM POM FINISHED ===" + ConsoleColors.RESET);
     }
     public static void listImportReflection(Path projectPath){
         try {
-            System.out.println(CYAN + "\n=== STARTING REFLECTING PROJECT'S IMPORTS ===" + RESET);
-            System.out.println("\n \t Import Statements (excluding " + excludedImportPrefix + "*)");
+            System.out.println(ConsoleColors.CYAN + "\n=== STARTING REFLECTING PROJECT'S IMPORTS ===" + ConsoleColors.RESET);
+            System.out.println("\t Import Statements (excluding " + excludedImportPrefix + "*)");
             List<String> importList = new ArrayList<>();
             Map<String, Set<String>> importMap = new HashMap<>();
 
@@ -377,7 +380,7 @@ public class CompleteGenerateMetadata {
 
             writeReflectConfig(importList, importReflectionPath);
             System.out.println(" \t Project's imports reflection written to " + importReflectionPath.toAbsolutePath());
-            System.out.println(CYAN + "\n=== REFLECTING PROJECT's IMPORTS FINISHED ===\n" + RESET);
+            System.out.println(ConsoleColors.CYAN + "=== REFLECTING PROJECT's IMPORTS FINISHED ===\n" + ConsoleColors.RESET);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -387,15 +390,54 @@ public class CompleteGenerateMetadata {
     public static void loadingScreen(){
         String[] frames = {"|", "/", "-", "\\"};
         for (int i = 0; i < 10; i++) {
-            System.out.print(PURPLE + "\rProcessing " + frames[i % 4] + " " + RESET);
+            System.out.print(ConsoleColors.PURPLE + "\rProcessing " + frames[i % 4] + " " + ConsoleColors.RESET);
             try {
                 Thread.sleep(250);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
-        System.out.println(PURPLE + "\rDone!                  " + RESET);
+        System.out.println(ConsoleColors.PURPLE + "\rDone!                  " + ConsoleColors.RESET);
     }
+    public static void generateMavenDependencyList(Path projectPath){
+        File workingDir = projectPath.toFile();
+        String os = System.getProperty("os.name").toLowerCase();
+        boolean isWindows = os.contains("win");
+
+        File outputFile = new File(workingDir, "dependencies.txt");
+        ProcessBuilder processBuilder = new ProcessBuilder();
+
+        if (isWindows) {
+            processBuilder.command("cmd.exe", "/c", "mvn.cmd", "dependency:list", ">", "dependencies.txt");
+        } else {
+            processBuilder.command("sh", "-c", "mvn dependency:list > dependencies.txt");
+        }
+        processBuilder.directory(workingDir);
+
+        try {
+            Process process = processBuilder.start();
+            BufferedReader errorReader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream())
+            );
+            String errorLine;
+
+            while ((errorLine = errorReader.readLine()) != null) {
+                System.err.println(errorLine);
+            }
+
+            int exitCode = process.waitFor();
+            System.out.println("\nMaven command exited with code: " + exitCode);
+
+            if (outputFile.exists()) {
+                System.out.println("Dependencies written to: " + outputFile.getAbsolutePath());
+            } else {
+                System.err.println("Warning: dependency.txt was not created!");
+            }
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void isValidPath(){
         try {
             Map<String, Path> pathMap = Map.of(
@@ -405,8 +447,9 @@ public class CompleteGenerateMetadata {
             Map<String, Path> filePathMap = Map.of(
                     "serviceReflectionPath", serviceReflectionPath,
                     "serviceProxyPath", serviceProxyPath,
-                    "libraryReflectionPath", libraryReflectionPath,
-                    "importReflectionPath", importReflectionPath
+                    "importReflectionPath", importReflectionPath,
+                    "dependenciesReflectionPath", dependenciesReflectionPath,
+                    "dependenciesProxyPath", dependenciesProxyPath
             );
 
             List<String> invalidPaths = new ArrayList<>();
@@ -539,7 +582,7 @@ public class CompleteGenerateMetadata {
             String version = parts[2];
             jarName = "\\" + groupId + "\\" + artifactId + "\\" + version + "\\" + artifactId + "-" + version + ".jar";
 
-            System.out.println("\nDependency: " + dependency);
+            System.out.println("Dependency: " + dependency);
             // System.out.println("Converted path: " + jarName + "\n");
 
         } catch (Exception e) {
