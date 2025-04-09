@@ -3,7 +3,6 @@ package org.example.generatemetadata.experimental;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.maven.cli.MavenCli;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
@@ -229,25 +228,6 @@ public class CompleteGenerateMetadata {
 
             listDependenciesReflection(versionedLibraries);
             System.out.println("Recorded Class -> " + count);
-
-//            for (String fixedLibrary : versionedLibraries){
-//                System.out.println(fixedLibrary);
-//                constructJarName(fixedLibrary);
-//                System.out.println("\n");
-//                listLibraryReflection(Paths.get(constructJarName(fixedLibrary)));
-//                System.out.println("\n");
-//            }
-
-//            System.out.println("\nversioned libraries \n");
-//            for (String fixedLibrary : versionedLibraries){
-//                System.out.printf("%s:%s:%s %n",
-//                        dep.getGroupId(),
-//                        dep.getArtifactId(),
-//                        dep.getVersion());
-//                constructJarName(fixedLibrary);
-//                System.out.println(fixedLibrary);
-//            }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -316,16 +296,6 @@ public class CompleteGenerateMetadata {
                                     invalidClassList.add(className);
                                 }
                             });
-
-//                    completeDependenciesMap.forEach(
-//                            (key, value) -> {
-//                                System.out.println("\nClass Name: " + key);
-//                                value.forEach(
-//                                        (methodKey, methodValue) -> System.out.println(
-//                                                "name: " + methodKey + "\n" + "parameterTypes: " + methodValue
-//                                        ));
-//                            });
-
                     writeReflectConfig(validClassList, dependenciesReflectionPath);
                     writeProxyConfig(interfaceList, dependenciesProxyPath);
                     count += completeDependenciesMap.size();
@@ -373,7 +343,6 @@ public class CompleteGenerateMetadata {
             importMap.keySet().stream()
                     .sorted()
                     .forEach(importedClass -> {
-                        // System.out.println(importedClass);
                         importMap.get(importedClass);
                         importList.add(importedClass);
                     });
