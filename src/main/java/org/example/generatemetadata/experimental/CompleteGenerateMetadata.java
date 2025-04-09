@@ -18,6 +18,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class CompleteGenerateMetadata {
     // Properties
@@ -224,6 +225,16 @@ public class CompleteGenerateMetadata {
             e.printStackTrace();
         }
     }
+
+    public class ReflectClass {
+        public String name;
+        public List<ReflectMethod> params;
+    }
+    public class ReflectMethod {
+        public String name;
+        public List<String> parameterTypes;
+    }
+
     public static void listDependenciesReflection(List<String> libraryPaths){
         System.out.println(CYAN + "\n=== STARTING REFLECTING PROJECT'S DEPENDENCIES FROM POM ===" + RESET);
         try {
@@ -231,6 +242,9 @@ public class CompleteGenerateMetadata {
             List<String> invalidJars = new ArrayList<>();
             String jarPath = "";
             String dependencyPath = "";
+            Map<String, Map<String, String>> completeDependenciesMap = new HashMap<>();
+            // ClassName (MethodName (ParamName (DataType)))
+
             for (String libraryPath : libraryPaths) {
                 dependencyPath = constructJarName(libraryPath);
                 jarPath = repositoryPath.toString().replace("\\", "/") + dependencyPath.toString().replace("\\", "/");
@@ -262,22 +276,32 @@ public class CompleteGenerateMetadata {
                             .filter(entry -> entry.getName().endsWith(".class"))
                             .forEach(entry -> {
                                 String className = entry.getName().replace("/", ".").replace(".class", "");
+                                Map<String, String> methodList = new HashMap<>();
+                                List<String> paramList = new ArrayList<>();
                                 try {
                                     Class<?> clazz = classLoader.loadClass(className);
                                     validClassList.add(clazz.getName());
-                                    /**
                                     Arrays.stream(clazz.getDeclaredMethods())
                                             .forEach(method -> {
                                                 String params = Arrays.stream(method.getParameters())
-                                                        .map(p -> p.getType().getSimpleName() + " " + p.getName())
-                                                        .collect(Collectors.joining(", "));
-                                                System.out.println("  - " + method.getName() + " -> params: [" + params + "]");
+                                                        .map(p -> p.getType().getClass().getName()).collect(Collectors.toList()).toString();
+//                                                System.out.println("  - " + method.getName() + " -> params: [" + params + "]");
+                                                methodList.put(method.getName(), params);
                                             });
-                                    **/
-
+//                                    methodList.forEach((key, value) -> System.out.println("method name : " + key + " -> params :" + value));
+                                    completeDependenciesMap.put(className, methodList);
                                 } catch (Throwable e) {
                                     invalidClassList.add(className);
                                 }
+                            });
+
+                    completeDependenciesMap.forEach(
+                            (key, value) -> {
+                                System.out.println("\nClass Name: " + key);
+                                value.forEach(
+                                        (methodKey, methodValue) -> System.out.println(
+                                                "name: " + methodKey + "\n" + "parameterTypes: " + methodValue
+                                        ));
                             });
 
                     // TODO : From this line should be a block of code for writing reflection into JSON format
