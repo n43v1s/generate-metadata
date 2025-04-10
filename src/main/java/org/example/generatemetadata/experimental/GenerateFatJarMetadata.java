@@ -20,7 +20,7 @@ import static org.example.generatemetadata.experimental.ConsoleColors.*;
 
 public class GenerateFatJarMetadata {
     public static int count = 0;
-    public static String projectName = "recharge-history";
+    public static String projectName = "device-bundling-esim";
     public static Path projectPath = Paths.get("C:\\Users\\agusilaban\\xl\\" + projectName);
     public static Path parentOutputPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\fatJatExperimental");
     public static Path reflectConfigFile = Paths.get("reflect-config.json");
@@ -36,6 +36,8 @@ public class GenerateFatJarMetadata {
     // List Library
     public static Map<String, Map<String, List<String>>> listLibrary(String jarPath) {
         Map<String, Map<String, List<String>>> libraryContents = new LinkedHashMap<>();
+        List<String> classes = new ArrayList<>();
+        List<String> interfaces = new ArrayList<>();
 
         try (FileSystem fs = FileSystems.newFileSystem(Paths.get(jarPath), (ClassLoader) null)) {
             List<Path> libraries = Files.list(fs.getPath("BOOT-INF/lib"))
@@ -46,8 +48,8 @@ public class GenerateFatJarMetadata {
 
             for (Path library : libraries) {
                 String libName = library.getFileName().toString();
-                List<String> classes = new ArrayList<>();
-                List<String> interfaces = new ArrayList<>();
+                List<String> libraryClasses = new ArrayList<String>();
+                List<String> libraryInterfaces = new ArrayList<String>();
 
                 try (FileSystem libFs = FileSystems.newFileSystem(library, (ClassLoader) null)) {
                     Files.walk(libFs.getPath("/"))
@@ -62,8 +64,10 @@ public class GenerateFatJarMetadata {
 
                                     if ((reader.getAccess() & Opcodes.ACC_INTERFACE) != 0) {
                                         interfaces.add(className);
+                                        libraryInterfaces.add(className);
                                     } else {
                                         classes.add(className);
+                                        libraryClasses.add(className);
                                     }
                                 } catch (IOException e) {
                                     System.err.println(RED + "Error reading: " + classFile + RESET);
@@ -72,15 +76,13 @@ public class GenerateFatJarMetadata {
                 }
 
                 Map<String, List<String>> contents = new HashMap<>();
-                contents.put("classes", classes);
-                contents.put("interfaces", interfaces);
+                contents.put("classes", libraryInterfaces);
+                contents.put("interfaces", libraryClasses);
                 libraryContents.put(libName, contents);
-
-                writeReflectConfig(classes, constructOutputFilePath(reflectConfigFile));
-                writeProxyConfig(interfaces, constructOutputFilePath(proxyConfigFile));
-
-                System.out.println(CYAN + "Processed " + libName + " (" + classes.size() + " classes, " + YELLOW + interfaces.size() + " interfaces" + CYAN + ")" + RESET);
+                System.out.println(CYAN + "Processed " + libName + " (" + libraryClasses.size() + " classes, " + YELLOW + libraryInterfaces.size() + " interfaces" + CYAN + ")" + RESET);
             }
+            writeReflectConfig(classes, constructOutputFilePath(reflectConfigFile));
+            writeProxyConfig(interfaces, constructOutputFilePath(proxyConfigFile));
         } catch (IOException e) {
             System.out.println(RED + "Error analyzing JAR: " + e.getMessage() + RESET);
         }
