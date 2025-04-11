@@ -21,6 +21,7 @@ import static org.example.generatemetadata.experimental.ConsoleColors.*;
 public class GenerateFatJarMetadata {
     public static int count = 0;
     public static String projectName = "device-bundling-esim";
+    public static boolean includeSpring = false;
     public static Path projectPath = Paths.get("C:\\Users\\agusilaban\\xl\\" + projectName);
     public static Path parentOutputPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\fatJatExperimental");
     public static Path reflectConfigFile = Paths.get("reflect-config.json");
@@ -42,10 +43,8 @@ public class GenerateFatJarMetadata {
         try (FileSystem fs = FileSystems.newFileSystem(Paths.get(jarPath), (ClassLoader) null)) {
             List<Path> libraries = Files.list(fs.getPath("BOOT-INF/lib"))
                     .filter(p -> p.toString().endsWith(".jar"))
+                    .filter(q -> includeSpring ? !q.toString().contains("springIncluded") : !q.toString().contains("spring"))
                     .collect(Collectors.toList());
-
-            System.out.println(GREEN + "Total libraries found: " + libraries.size() + RESET);
-
             for (Path library : libraries) {
                 String libName = library.getFileName().toString();
                 List<String> libraryClasses = new ArrayList<String>();
@@ -54,6 +53,7 @@ public class GenerateFatJarMetadata {
                 try (FileSystem libFs = FileSystems.newFileSystem(library, (ClassLoader) null)) {
                     Files.walk(libFs.getPath("/"))
                             .filter(p -> p.toString().endsWith(".class"))
+                            .filter(q -> !q.toString().contains("META-INF"))
                             .forEach(classFile -> {
                                 try (InputStream is = Files.newInputStream(classFile)) {
                                     ClassReader reader = new ClassReader(is);
@@ -83,6 +83,9 @@ public class GenerateFatJarMetadata {
             }
             writeReflectConfig(classes, constructOutputFilePath(reflectConfigFile));
             writeProxyConfig(interfaces, constructOutputFilePath(proxyConfigFile));
+            System.out.println(GREEN + "\nTotal libraries found: " + libraries.size() + RESET);
+            System.out.println(GREEN + "Total libraries' classes found: " + classes.size() + RESET);
+            System.out.println(GREEN + "Total libraries' interfaces found: " + interfaces.size() + RESET);
         } catch (IOException e) {
             System.out.println(RED + "Error analyzing JAR: " + e.getMessage() + RESET);
         }
@@ -133,10 +136,13 @@ public class GenerateFatJarMetadata {
         try {
             ObjectMapper mapper = new ObjectMapper();
             ArrayNode proxyConfig = mapper.createArrayNode();
+
             for (String proxyName : proxyList){
                 String fullClassName = proxyName.replace("import ", "").replace(";", "").trim();
                 ObjectNode classNode = mapper.createObjectNode();
-                classNode.put("interface", fullClassName);
+                ArrayNode arrayNode = mapper.createArrayNode();
+                arrayNode.add(fullClassName);
+                classNode.put("interfaces", arrayNode);
                 proxyConfig.add(classNode);
             }
             mapper.writeValue(new File(proxyConfigPath.toString()), proxyConfig);
@@ -254,12 +260,10 @@ public class GenerateFatJarMetadata {
         String result = "";
         try {
             result = projectPath + "\\target\\"+ jarFileName;
-            System.out.println("Constructed JAR file path : " + result);
+            System.out.println("Constructed JAR file path : " + result + "\n");
         } catch (Exception e) {
             System.out.println(ConsoleColors.RED + "Something was wrong while constructing jar file path -> " + e.getMessage() + RESET);
         }
         return result;
     }
-
-
 }
