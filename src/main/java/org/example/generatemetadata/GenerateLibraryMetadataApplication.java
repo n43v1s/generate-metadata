@@ -35,10 +35,7 @@ public class GenerateLibraryMetadataApplication {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
                 String name = entry.getName();
-
-                // Only consider .class files
                 if (name.endsWith(".class")) {
-                    // Convert path to package notation
                     String className = name.replace("/", ".").replace(".class", "");
                     System.out.println(className);
                 }
@@ -52,27 +49,19 @@ public class GenerateLibraryMetadataApplication {
         try (JarFile jarFile = new JarFile(new File(jarPath))) {
             Enumeration<JarEntry> entries = jarFile.entries();
 
-            // Load the JAR into a custom class loader
             URL jarURL = new File(jarPath).toURI().toURL();
             try (URLClassLoader classLoader = new URLClassLoader(new URL[]{jarURL}, Thread.currentThread().getContextClassLoader())) {
-
                 System.out.println("Classes in " + jarPath + ":");
-
                 while (entries.hasMoreElements()) {
                     JarEntry entry = entries.nextElement();
                     String name = entry.getName();
 
-                    // Only consider .class files
                     if (name.endsWith(".class")) {
-                        // Convert path to package notation
                         String className = name.replace("/", ".").replace(".class", "");
-
                         try {
-                            // Load the class dynamically
                             Class<?> loadedClass = classLoader.loadClass(className);
                             System.out.println("\nClass: " + loadedClass.getName());
 
-                            // List all declared methods
                             Method[] methods = loadedClass.getDeclaredMethods();
                             for (Method method : methods) {
                                 Parameter[] parameters = method.getParameters();
@@ -85,15 +74,10 @@ public class GenerateLibraryMetadataApplication {
                                         paramList.append(", ");
                                     }
                                 }
-
-
-                                // Print method name with parameters
                                 System.out.println("  - " + method.getName() + " -> params: [" + paramList + "]");
                             }
                         } catch (Throwable e) {
                             System.err.println(e.getMessage());
-//                            String outerClassName = e.getMessage().replace("/", ".").replace(".class", "");
-//                            System.out.println(outerClassName);
                         }
                     }
                 }
@@ -106,27 +90,17 @@ public class GenerateLibraryMetadataApplication {
     public static void processLibJarV3(String jarPath, String libDir) {
         try (JarFile jarFile = new JarFile(new File(jarPath))) {
             Enumeration<JarEntry> entries = jarFile.entries();
-
-            // ✅ Load main JAR + all dependency JARs
             URL[] urls = getDependencyJars(libDir);
             try (URLClassLoader classLoader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader())) {
-
                 System.out.println("Classes in " + jarPath + ":");
-
                 while (entries.hasMoreElements()) {
                     JarEntry entry = entries.nextElement();
                     String name = entry.getName();
-
-                    // Only consider .class files
                     if (name.endsWith(".class")) {
                         String className = name.replace("/", ".").replace(".class", "");
-
                         try {
-                            // ✅ Load the class dynamically
                             Class<?> loadedClass = classLoader.loadClass(className);
                             System.out.println("\nClass: " + loadedClass.getName());
-
-                            // ✅ List all declared methods with parameters
                             Method[] methods = loadedClass.getDeclaredMethods();
                             for (Method method : methods) {
                                 Parameter[] parameters = method.getParameters();
@@ -150,11 +124,9 @@ public class GenerateLibraryMetadataApplication {
         }
     }
 
-    // ✅ Load all dependency JARs from a directory
     private static URL[] getDependencyJars(String libDir) throws IOException {
         File libFolder = new File(libDir);
         List<URL> jarUrls = new ArrayList<>();
-
         if (libFolder.exists() && libFolder.isDirectory()) {
             File[] files = libFolder.listFiles((dir, name) -> name.endsWith(".jar"));
             if (files != null) {

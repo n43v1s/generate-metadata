@@ -19,18 +19,14 @@ public class GenerateMetadataApplication {
 		String projectDir = "C:\\Users\\agusilaban\\xl\\recharge-history";
 		String outputReflectConfig = "C:\\Users\\agusilaban\\xl\\metadatas\\META-INF\\native-image\\reflect-config.json";
 		String outputProxyConfig = "C:\\Users\\agusilaban\\xl\\metadatas\\META-INF\\native-image\\proxy-config.json";
-
 		List<Path> javaFiles;
 
-		// Scan all .java files in the project directory
 		try (Stream<Path> paths = Files.walk(Paths.get(projectDir))) {
 			javaFiles = paths
 					.filter(Files::isRegularFile)
 					.filter(path -> path.toString().endsWith(".java"))
 					.collect(Collectors.toList());
 		}
-
-		// Create JSON structure
 		ObjectMapper mapper = new ObjectMapper();
 		ArrayNode proxyConfig = mapper.createArrayNode();
 		ArrayNode reflectConfig = mapper.createArrayNode();
@@ -39,8 +35,6 @@ public class GenerateMetadataApplication {
 			processJavaFile(javaFile, reflectConfig);
 			processJavaInterfaceFile(javaFile, proxyConfig);
 		}
-
-		// Write JSON to file
 		mapper.writerWithDefaultPrettyPrinter().writeValue(new File(outputReflectConfig), reflectConfig);
 		mapper.writerWithDefaultPrettyPrinter().writeValue(new File(outputProxyConfig), proxyConfig);
 
@@ -50,19 +44,13 @@ public class GenerateMetadataApplication {
 
 	private static void processJavaFile(Path javaFile, ArrayNode reflectConfig) throws IOException {
 		List<String> lines = Files.readAllLines(javaFile);
-
 		String packageName = null;
 		String className = null;
-
 		for (String line : lines) {
 			line = line.trim();
-
-			// Capture package name
 			if (line.startsWith("package ")) {
 				packageName = line.split(" ")[1].replace(";", "");
 			}
-
-			// Capture class name
 			if (line.startsWith("public class ") || line.startsWith("class ")) {
 				line = line.replace("{", "");
 				String[] parts = line.split(" ");
@@ -72,8 +60,6 @@ public class GenerateMetadataApplication {
 					className = parts[1];
 				}
 			}
-
-			// Check for inner classes
 			if (line.startsWith("public static class ") || line.startsWith("static class ")) {
 				line = line.replace("{", "");
 				String[] parts = line.split(" ");
@@ -83,8 +69,6 @@ public class GenerateMetadataApplication {
 				}
 			}
 		}
-
-		// Add the main class to the config if applicable
 		if (packageName != null && className != null) {
 			addClassToReflectConfig(reflectConfig, removeGenerics(packageName + "." + className));
 		}
@@ -102,19 +86,14 @@ public class GenerateMetadataApplication {
 
 	private static void processJavaInterfaceFile(Path javaFile, ArrayNode proxyConfig) throws IOException {
 		List<String> lines = Files.readAllLines(javaFile);
-
 		String packageName = null;
 		String className = null;
-
 		for (String line : lines) {
 			line = line.trim();
-
-			// Capture package name
 			if (line.startsWith("package ")) {
 				packageName = line.split(" ")[1].replace(";", "");
 			}
 
-			// Capture class name
 			if (line.startsWith("public interface ") || line.startsWith("interface ")) {
 				line = line.replace("{", "");
 				String[] parts = line.split(" ");
@@ -125,7 +104,6 @@ public class GenerateMetadataApplication {
 				}
 			}
 
-			// Check for inner classes
 			if (line.startsWith("public static interface ") || line.startsWith("static interface ")) {
 				line = line.replace("{", "");
 				String[] parts = line.split(" ");

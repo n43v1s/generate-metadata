@@ -30,16 +30,18 @@ public class GenerateFatJarMetadata {
     public static void main(String[] args) {
         System.out.println("Hello world!");
         pathValidation();
+
         buildFatJar();
+
         listLibrary(constructJarFilePath(constructJarFileName()));
     }
+
 
     // List Library
     public static Map<String, Map<String, List<String>>> listLibrary(String jarPath) {
         Map<String, Map<String, List<String>>> libraryContents = new LinkedHashMap<>();
         List<String> classes = new ArrayList<>();
         List<String> interfaces = new ArrayList<>();
-
         try (FileSystem fs = FileSystems.newFileSystem(Paths.get(jarPath), (ClassLoader) null)) {
             List<Path> libraries = Files.list(fs.getPath("BOOT-INF/lib"))
                     .filter(p -> p.toString().endsWith(".jar"))
@@ -49,7 +51,6 @@ public class GenerateFatJarMetadata {
                 String libName = library.getFileName().toString();
                 List<String> libraryClasses = new ArrayList<String>();
                 List<String> libraryInterfaces = new ArrayList<String>();
-
                 try (FileSystem libFs = FileSystems.newFileSystem(library, (ClassLoader) null)) {
                     Files.walk(libFs.getPath("/"))
                             .filter(p -> p.toString().endsWith(".class"))
@@ -61,7 +62,6 @@ public class GenerateFatJarMetadata {
                                             .replace("/", ".")
                                             .replace(".class", "")
                                             .substring(1);
-
                                     if ((reader.getAccess() & Opcodes.ACC_INTERFACE) != 0) {
                                         interfaces.add(className);
                                         libraryInterfaces.add(className);
@@ -93,25 +93,6 @@ public class GenerateFatJarMetadata {
         return libraryContents;
     }
 
-    // List Classes (Unused)
-    public static List<String> listClasses (String jarPath) {
-        List<String> classes = new ArrayList<>();
-        try (FileSystem jarFs = FileSystems.newFileSystem(Paths.get(jarPath), (ClassLoader) null)){for (Path root : jarFs.getRootDirectories()) {
-            Files.walk(root)
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".class"))
-                    .map(p -> p.toString()
-                            .replace("/", ".")
-                            .replace(".class", "")
-                            .substring(1)) // Remove leading /
-                    .forEach(classes::add);
-            System.out.println("Total classes counted in JAR file: "+classes.size());
-        }
-        } catch (Exception e) {
-            System.out.println(ConsoleColors.RED + "Something was wrong while listing classes -> " + e.getMessage() + RESET);
-        }
-        return classes;
-    }
 
     // Write to file
     public static void writeReflectConfig(List<String> classList, Path reflectConfigPath) {
@@ -136,7 +117,6 @@ public class GenerateFatJarMetadata {
         try {
             ObjectMapper mapper = new ObjectMapper();
             ArrayNode proxyConfig = mapper.createArrayNode();
-
             for (String proxyName : proxyList){
                 String fullClassName = proxyName.replace("import ", "").replace(";", "").trim();
                 ObjectNode classNode = mapper.createObjectNode();
@@ -150,6 +130,7 @@ public class GenerateFatJarMetadata {
             e.printStackTrace();
         }
     }
+
 
     // Validation
     public static void pathValidation () {
@@ -185,26 +166,16 @@ public class GenerateFatJarMetadata {
                     validFilePaths.put(key, filePath.toString());
                 }
             });
+            invalidPaths.forEach((key, pathValue) -> { System.out.println(ConsoleColors.RED + "Invalid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue); });
 
-            invalidPaths.forEach((key, pathValue) -> {
-                System.out.println(ConsoleColors.RED + "Invalid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue);
-            });
-            validPaths.forEach((key, pathValue) -> {
-                System.out.println(GREEN + "Valid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue);
-            });
+            validPaths.forEach((key, pathValue) -> { System.out.println(GREEN + "Valid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue); });
 
-            invalidFilePaths.forEach((key, pathValue) -> {
-                System.out.println(ConsoleColors.RED + "Invalid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue);
-            });
-            validFilePaths.forEach((key, pathValue) -> {
-                System.out.println(GREEN + "Valid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue);
-            });
+            invalidFilePaths.forEach((key, pathValue) -> { System.out.println(ConsoleColors.RED + "Invalid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue); });
 
-            if (invalidPaths.size() > 0){
-                System.exit(1);
-            }
+            validFilePaths.forEach((key, pathValue) -> { System.out.println(GREEN + "Valid path : " + RESET + ConsoleColors.PURPLE + key + RESET + " -> " + pathValue); });
+
+            if (invalidPaths.size() > 0){ System.exit(1); }
             System.out.println("\n");
-
         } catch (Exception e) {
             System.out.println(ConsoleColors.RED + "Something was wrong -> " + e.getMessage() + RESET);
         }
@@ -218,7 +189,6 @@ public class GenerateFatJarMetadata {
         ProcessBuilder processBuilder = new ProcessBuilder();
         processBuilder.command(mvnCommand, "clean", "package", "-DskipTests");
         processBuilder.directory(workingDir);
-
         try {
             Process process = processBuilder.start();
             int exitCode = process.waitFor();
@@ -233,6 +203,7 @@ public class GenerateFatJarMetadata {
         }
     }
 
+
     // Construction
     public static Path constructOutputFilePath(Path fileName) {
         Path result = Paths.get("");
@@ -243,6 +214,7 @@ public class GenerateFatJarMetadata {
         }
         return result;
     }
+
     public static String constructJarFileName () {
         String result = "";
         try {
@@ -256,6 +228,7 @@ public class GenerateFatJarMetadata {
         }
         return result;
     }
+
     public static String constructJarFilePath (String jarFileName) {
         String result = "";
         try {

@@ -17,7 +17,6 @@ public class ListImports {
         Path projectDir = Paths.get("C:\\Users\\agusilaban\\xl\\recharge-history");
         Path reflectConfigPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\reflect-config-1.json");
         String serviceName = "recharge-history";
-
         listImports(projectDir, serviceName, reflectConfigPath);
     }
 
@@ -27,16 +26,9 @@ public class ListImports {
                 System.err.println("Invalid project directory.");
                 return;
             }
-
             List<String> classList = new ArrayList<>();
-
-            // Exclude this prefix
             String excludedPrefix = "import id.co.xl."+ serviceName +".";
-
-            // Store import lines and their source files
             Map<String, Set<String>> importMap = new HashMap<>();
-
-            // Walk the file tree and process .java files
             Files.walk(servicePath)
                     .filter(path -> path.toString().endsWith(".java"))
                     .forEach(path -> {
@@ -60,8 +52,6 @@ public class ListImports {
                             System.err.println("Error reading file: " + path);
                         }
                     });
-
-            // Print all unique imports and their source files
             importMap.keySet().stream()
                     .sorted()
                     .forEach(imp -> {
@@ -69,9 +59,7 @@ public class ListImports {
                         importMap.get(imp);
                         classList.add(imp);
                     });
-
             writeImportReflection(classList, configPath);
-
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -90,7 +78,6 @@ public class ListImports {
                 classNode.put("allDeclaredConstructors", true);
                 reflectConfig.add(classNode);
             }
-
             mapper.writeValue(new File(reflectConfigPath.toString()), reflectConfig);
         } catch (Exception e) {
             e.printStackTrace();

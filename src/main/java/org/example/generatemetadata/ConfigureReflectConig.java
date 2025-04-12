@@ -32,24 +32,15 @@ public class ConfigureReflectConig {
     }
 
     public static void generateMetadata(String[] filePaths, String outputFile) {
-        // Generate metadata
         Map<String, JsonNode> metadata = new HashMap<>();
         int totalEntriesProcessed = 0;
         try {
            for (String filePath : filePaths) {
                File file = new File(filePath);
-
-               if (!file.exists()) {
-                   System.out.println("File does not exist: " + filePath);
-                   continue;
-               }
-
+               if (!file.exists()) { System.out.println("File does not exist: " + filePath); continue; }
                try {
                    JsonNode jsonNode = objectMapper.readTree(file);
-                   if (!jsonNode.isArray()){
-                       System.out.println("File is not an array: " + filePath);
-                       continue;
-                   }
+                   if (!jsonNode.isArray()){ System.out.println("File is not an array: " + filePath); continue; }
                    for (JsonNode node : jsonNode) {
                        JsonNode classNameNode = node.get("name");
                        if (classNameNode != null && !classNameNode.isNull()) {
@@ -70,9 +61,7 @@ public class ConfigureReflectConig {
                System.out.println("\nTotal unique entries found: " + metadata.size());
                System.out.println("Total entries processed: " + totalEntriesProcessed);
 
-               if (metadata.size() == 0) {
-                   System.err.println("Warning: No valid entries found in any input files!");
-               }
+               if (metadata.size() == 0) { System.err.println("Warning: No valid entries found in any input files!"); }
            }
 
            ArrayNode arrayNode = objectMapper.createArrayNode();
