@@ -6,25 +6,18 @@ import java.util.*;
 import java.util.regex.*;
 
 public class UsedMethodScanner {
-
-    // Class you want to scan usage for
     private static final String targetClassSimpleName = "PreWarmGenericClient";
     private static final String targetClassFullName = "id.co.xl.lib.restclient.config.PreWarmGenericClient";
-
     public static void main(String[] args) throws IOException {
         Path projectDir = Paths.get("C:\\Users\\agusilaban\\xl\\billing-delivery");
-
         if (!Files.isDirectory(projectDir)) {
             System.err.println("Invalid project directory");
             return;
         }
-
         Set<String> usedMethods = new TreeSet<>();
-
         Pattern methodCallPattern = Pattern.compile(
-                targetClassSimpleName + "\\s*\\.\\s*([a-zA-Z0-9_]+)\\s*\\(" // e.g., JsonProcessingException.someMethod(
+                targetClassSimpleName + "\\s*\\.\\s*([a-zA-Z0-9_]+)\\s*\\("
         );
-
         Files.walk(projectDir)
                 .filter(path -> path.toString().endsWith(".java"))
                 .forEach(file -> {
@@ -40,10 +33,8 @@ public class UsedMethodScanner {
                         e.printStackTrace();
                     }
                 });
-
         System.out.println("=== Used Methods for " + targetClassFullName + " ===");
         usedMethods.forEach(System.out::println);
-
         System.out.println("\n=== reflect-config.json Snippet ===");
         System.out.println("{");
         System.out.println("  \"name\": \"" + targetClassFullName + "\",");
