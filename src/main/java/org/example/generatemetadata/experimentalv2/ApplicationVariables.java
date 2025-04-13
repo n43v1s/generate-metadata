@@ -3,12 +3,13 @@ package org.example.generatemetadata.experimentalv2;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 
-import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.example.generatemetadata.experimental.ConsoleColors.PURPLE;
@@ -18,7 +19,7 @@ public class ApplicationVariables {
     /**
      * Properties
      * */
-    public static String projectName = "recharge-history";
+    public static String projectName = "direct-debit-account";
     public static String version = "1.0.0-Alpha";
     public static boolean includeSpring = false;
     public static String directorySlash = "\\";
@@ -122,12 +123,48 @@ public class ApplicationVariables {
             } else if (Files.isDirectory(path3)) {
                 result.put(String.valueOf(path2), projectName.replace("-", "."));
             } else {
-                result = null;
+                result = findMainClass();
             }
         } catch (Exception e) {
             System.out.println("Error constructing project main directory: " + e.getMessage());
         }
         return result;
     }
+
+    public static Map<String, String>findMainClass () {
+        Map<String, String> result = new HashMap<>();
+        try {
+            Files.walk(projectPath)
+                    .filter(path -> path.toString().endsWith("Application.java"))
+                    .forEach(path -> {
+                        try {
+                            String packageName = "";
+                            List<String> lines = Files.readAllLines(path);
+                            for (String line : lines) {
+                                line = line.trim();
+                                if (line.startsWith("package")) {
+                                    packageName = line
+                                            .replace("package ", "")
+                                            .replace(";", "")
+                                            .replace(projectGroupId, "");
+                                }
+                            }
+                            Path fixedPath = Paths.get(
+                                    projectPath +
+                                            "\\src\\main\\java\\" +
+                                            projectGroupId.replace(".", directorySlash) +
+                                            packageName.replace(".", directorySlash)
+                            );
+                            result.put(String.valueOf(fixedPath), packageName.replace(".", ""));
+                        } catch (IOException ioe) {
+                            System.out.println("Error finding main class: " + ioe.getMessage());
+                        }
+                    });
+        } catch (Exception e) {
+            System.out.println("Error finding main class: " + e.getMessage());
+        }
+        return result;
+    }
 }
+
 

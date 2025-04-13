@@ -12,9 +12,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.example.generatemetadata.experimental.ConsoleColors.*;
 import static org.example.generatemetadata.experimentalv2.ApplicationVariables.*;
@@ -55,7 +55,53 @@ public class GenerateMetadata {
     public static void scanProject () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting project scan");
         try {
+            String basePackage = excludedImportPrefix;
+            Pattern packagePattern = Pattern.compile("^package\\s+([a-zA-Z0-9_.]+);");
+            Pattern classPattern = Pattern.compile("^(public\\s+)?(static\\s+)?class\\s+(\\w+)");
+            Pattern interfacePattern = Pattern.compile("^(public\\s+)?interface\\s+(\\w+)");
+            List<String> classList = new ArrayList<>();
+            List<String> proxyList = new ArrayList<>();
 
+            Files.walk(projectPath)
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .forEach(path -> {
+                        try {
+                            String packageName = "";
+                            boolean isInTargetPackage = false;
+                            List<String> lines = Files.readAllLines(path);
+                            for (String line : lines) {
+                                line = line.trim();
+                                Matcher packageMatcher = packagePattern.matcher(line);
+                                if (packageMatcher.find()) {
+                                    packageName = packageMatcher.group(1);
+                                }
+                                isInTargetPackage = packageName.startsWith(basePackage.replace("import ", ""));
+
+                                Matcher classMatcher = classPattern.matcher(line);
+                                if (classMatcher.find() && isInTargetPackage) {
+                                    String className = classMatcher.group(3);
+                                    String fullClass = packageName.isEmpty()
+                                            ? className
+                                            : packageName + "." + className;
+                                    classList.add(fullClass);
+                                }
+
+                                Matcher intfMatcher = interfacePattern.matcher(line);
+                                if (intfMatcher.find() && isInTargetPackage) {
+                                    String interfaceName = intfMatcher.group(2);
+                                    String fullInterface = packageName.isEmpty()
+                                            ? interfaceName
+                                            : packageName + "." + interfaceName;
+                                    proxyList.add(fullInterface);
+                                }
+
+                            }
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+            writeReflectConfig(classList, projectReflectionPath);
+            writeProxyConfig(proxyList, projectProxyPath);
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project scan: " + e.getMessage());
         }
@@ -134,7 +180,7 @@ public class GenerateMetadata {
         ArrayNode reflection = objectMapper.createArrayNode();
         try {
             if (classList.isEmpty()) {
-                System.out.println(YELLOW + "[WARN] \t " + RESET + "No classes found to write to file");
+                System.out.println(YELLOW + "[WARN] \t\t " + RESET + "No classes found to write to file");
             } else {
                 for (String className : classList) {
                     String fullClassName = className.replace("import", "").replace(";", "").trim();
@@ -146,7 +192,7 @@ public class GenerateMetadata {
                     reflection.add(classNode);
                 }
                 objectMapper.writeValue(new File(path.toString()), reflection);
-                System.out.println(BLUE + "[INFO] \t " + RESET + "Wrote " + classList.size() + " classes to file: " + path.toAbsolutePath());
+                System.out.println(BLUE + "[INFO] \t\t " + RESET + "Wrote " + classList.size() + " classes to file: " + path.toAbsolutePath());
             }
         } catch (IOException e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "Unable to write to file: " + e.getMessage());
@@ -159,7 +205,7 @@ public class GenerateMetadata {
         ArrayNode proxyConfig = objectMapper.createArrayNode();
         try {
             if (proxyList.isEmpty()) {
-                System.out.println(YELLOW + "[WARN] \t " + RESET + "No classes found to write to file");
+                System.out.println(YELLOW + "[WARN] \t\t " + RESET + "No interfaces found to write to file");
             } else {
                 for (String proxyName : proxyList) {
                     String fullClassName = proxyName.replace("import", "").replace(";", "").trim();
@@ -168,7 +214,7 @@ public class GenerateMetadata {
                     proxyConfig.add(proxyNode);
                 }
                 objectMapper.writeValue(new File(path.toString()), proxyConfig);
-                System.out.println(BLUE + "[INFO] \t " + RESET + "Wrote " + proxyList.size() + " classes to file: " + path.toAbsolutePath());
+                System.out.println(BLUE + "[INFO] \t\t " + RESET + "Wrote " + proxyList.size() + " interfaces to file: " + path.toAbsolutePath());
             }
         } catch (IOException e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "Unable to write to file: " + e.getMessage());
