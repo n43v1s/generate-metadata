@@ -3,7 +3,6 @@ package org.example.generatemetadata.experimentalv2;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.example.generatemetadata.experimental.ConsoleColors;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.BufferedReader;
@@ -51,7 +50,7 @@ public class GenerateMetadata {
         // System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Project initialization complete\n");
     }
 
-    // ToDo : Scan project for reflections and proxies ()
+    // ToDo : Scan project for reflections and proxies (DONE)
     public static void scanProject () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting project scan");
         try {
@@ -94,7 +93,6 @@ public class GenerateMetadata {
                                             : packageName + "." + interfaceName;
                                     proxyList.add(fullInterface);
                                 }
-
                             }
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -108,11 +106,44 @@ public class GenerateMetadata {
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Project scan finished\n");
     }
 
-    // ToDo : Scan project's imports for reflections and proxies ()
+    // ToDo : Scan project's imports for reflections and proxies (1/2 need to filter for interfaces)
     public static void scanProjectImports () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting project imports scan");
         try {
-
+            List<String> classList = new ArrayList<>();
+            List<String> interfaceList = new ArrayList<>();
+            String excludedPrefix = excludedImportPrefix;
+            Map<String, Set<String>> importClassMap = new HashMap<>();
+            Map<String, Set<String>> importInterfaceMap = new HashMap<>();
+            Files.walk(projectPath)
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .forEach(path -> {
+                        try {
+                            List<String> lines = Files.readAllLines(path);
+                            for (String line : lines) {
+                                line = line.trim();
+                                if (line.startsWith("import ") &&
+                                        !line.startsWith(excludedPrefix) &&
+                                        !line.endsWith(".*;") &&
+                                        !line.contains("static ") &&
+                                        !line.contains(".springframework.test.")
+                                ) {
+                                    importClassMap
+                                            .computeIfAbsent(line, k -> new HashSet<>())
+                                            .add(projectPath.relativize(path).toString());
+                                }
+                            }
+                        } catch (IOException e) {
+                            System.err.println("Error reading file: " + path);
+                        }
+                    });
+            importClassMap.keySet().stream()
+                    .sorted()
+                    .forEach(imp -> {
+                        importClassMap.get(imp);
+                        classList.add(imp);
+                    });
+            writeReflectConfig(classList, importReflectionPath);
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project imports scan: " + e.getMessage());
         }
