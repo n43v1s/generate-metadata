@@ -210,7 +210,9 @@ public class GenerateMetadata {
                 for (String proxyName : proxyList) {
                     String fullClassName = proxyName.replace("import", "").replace(";", "").trim();
                     ObjectNode proxyNode = objectMapper.createObjectNode();
-                    proxyNode.put("interfaces", fullClassName);
+                    ArrayNode arrayNode = objectMapper.createArrayNode();
+                    arrayNode.add(fullClassName);
+                    proxyNode.put("interfaces", arrayNode);
                     proxyConfig.add(proxyNode);
                 }
                 objectMapper.writeValue(new File(path.toString()), proxyConfig);
