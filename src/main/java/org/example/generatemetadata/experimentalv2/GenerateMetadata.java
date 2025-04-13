@@ -1,19 +1,25 @@
 package org.example.generatemetadata.experimentalv2;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.example.generatemetadata.experimental.ConsoleColors;
 import org.springframework.core.io.ClassPathResource;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.Buffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.example.generatemetadata.experimental.ConsoleColors.*;
 import static org.example.generatemetadata.experimentalv2.ApplicationVariables.*;
@@ -42,8 +48,8 @@ public class GenerateMetadata {
             constructProjectMainDir();
 
             isAllPathsValid();
-            listAllDependencies();
-            buildFatJar();
+//            listAllDependencies();
+//            buildFatJar();
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project initialization: " + e.getMessage());
         }
@@ -165,8 +171,73 @@ public class GenerateMetadata {
     public static void scanProjectDependencies () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting project dependencies scan");
         try {
+            Map<String, String> dependencyList = getDependenciesRepository(getDependenciesList());
+            List<String> validJars = new ArrayList<>();
+            List<String> invalidJars = new ArrayList<>();
 
-        } catch (Exception e){
+            String dependencyPath = "";
+
+            Map<String, Map<String, String>> completeDependenciesMap = new HashMap<>();
+            List<String> validClassList = new ArrayList<>();
+            List<String> invalidClassList = new ArrayList<>();
+            List<String> validInterfaceList = new ArrayList<>();
+            List<String> invalidInterfaceList = new ArrayList<>();
+
+            dependencyList.forEach((key, value) -> {
+                String jarPath = String.valueOf(repositoryPath + value);
+//                System.out.println("Loading JAR from: " + jarPath);
+
+                File jarFile = new File(jarPath);
+                if (!jarFile.exists()) {
+                    invalidJars.add(jarPath);
+//                    System.out.println(ConsoleColors.RED + "[ERR]" + ConsoleColors.RESET + "No JAR file found at: " + jarPath);
+                } else {
+                    validJars.add(jarPath);
+//                    System.out.println(ConsoleColors.GREEN + "[OK]" + ConsoleColors.RESET + " JAR file found at: " + jarPath + "\n");
+                }
+            });
+
+            for (String validJar : validJars) {
+                File jarFile = new File(validJar);
+                JarFile jar = new JarFile(jarFile);
+                Enumeration<JarEntry> entriesEnum = jar.entries();
+                URLClassLoader classLoader = new URLClassLoader(
+                        new URL[]{jarFile.toURI().toURL()},
+                        Thread.currentThread().getContextClassLoader());
+
+                Collections.list(entriesEnum).stream()
+                        .filter(entry -> entry.getName().endsWith(".class"))
+                        .forEach(entry -> {
+                            String className = entry.getName().replace("/", ".").replace(".class", "");
+                            Map<String, String> methodList = new HashMap<>();
+                            try {
+                                Class<?> clazz = classLoader.loadClass(className);
+                                if (clazz.isInterface()) {
+                                    validInterfaceList.add(clazz.getName());
+                                } else {
+                                    validClassList.add(clazz.getName());
+                                    Arrays.stream(clazz.getDeclaredMethods())
+                                            .forEach(method -> {
+                                                String params = Arrays.stream(method.getParameters())
+                                                        .map(p -> p.getType().getClass().getName()).collect(Collectors.toList()).toString();
+                                                methodList.put(method.getName(), params);
+                                            });
+                                    completeDependenciesMap.put(className, methodList);
+                                }
+                            } catch (Throwable e) {
+                                invalidClassList.add(className);
+                            }
+                        });
+                }
+            writeReflectConfig(validClassList, dependenciesReflectionPath);
+            writeProxyConfig(validInterfaceList, dependenciesProxyPath);
+
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Libraries found: " + RESET + validJars.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Classes found: " + RESET + validClassList.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Interfaces found: " + RESET + validInterfaceList.size());
+        } catch (IOException ioe) {
+            System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while reading library's JAR: " + ioe.getMessage());
+        } catch (Exception e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project dependencies scan: " + e.getMessage());
         }
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Project dependencies scan finished\n");
@@ -187,7 +258,48 @@ public class GenerateMetadata {
     public static void configureReflectConfig () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Configuring reflection metadata");
         try {
+            int totalEntriesProcessed = 0;
+            int duplicatedEntries = 0;
+            ObjectMapper objectMapper = new ObjectMapper();
+            String[] files = {
+                    String.valueOf(projectReflectionPath),
+                    String.valueOf(dependenciesReflectionPath),
+                    String.valueOf(importReflectionPath)
+            };
+            Map<String, JsonNode> metadata = new HashMap<>();
+            for (String filePath : files) {
+                File file = new File(filePath);
+                if (!file.exists()) { System.out.println("File does not exist: " + filePath); continue; }
+                JsonNode jsonNode = objectMapper.readTree(file);
+                if (!jsonNode.isArray()){ System.out.println("File is not an array: " + filePath); continue; }
+                for (JsonNode node : jsonNode) {
+                    JsonNode classNameNode = node.get("name");
+                    if (classNameNode != null && !classNameNode.isNull()) {
+                        String name = classNameNode.asText();
+                        if (!metadata.containsKey(name)) {
+                            metadata.put(name, node);
+                        } else {
+//                            System.out.println("  Duplicate entry skipped: " + name);
+                            duplicatedEntries += 1;
+                        }
+                    } else {
+                        System.err.println("  Entry missing 'name' field: " + node);
+                    }
+                }
+                totalEntriesProcessed += metadata.size();
 
+                if (metadata.size() == 0) { System.err.println("Warning: No valid entries found in any input files!"); }
+            }
+            ArrayNode arrayNode = objectMapper.createArrayNode();
+            metadata.values().stream()
+                    .sorted(Comparator.comparing(key -> key.get("name").asText()))
+                    .forEach(arrayNode::add);
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total unique entries found: " + metadata.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total duplicated entries: " + duplicatedEntries);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(String.valueOf(reflectConfigFile)), arrayNode);
+        } catch (IOException e) {
+            System.out.println("Error reading file: ");
+            e.printStackTrace();
         } catch (Exception e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while configuring reflection metadata: " + e.getMessage());
         }
@@ -223,7 +335,7 @@ public class GenerateMetadata {
                     reflection.add(classNode);
                 }
                 objectMapper.writeValue(new File(path.toString()), reflection);
-                System.out.println(BLUE + "[INFO] \t\t " + RESET + "Wrote " + classList.size() + " classes to file: " + path.toAbsolutePath());
+                System.out.println(CYAN + "[INFO] \t\t " + RESET + "Wrote " + classList.size() + " classes to file: " + path.toAbsolutePath());
             }
         } catch (IOException e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "Unable to write to file: " + e.getMessage());
@@ -247,7 +359,7 @@ public class GenerateMetadata {
                     proxyConfig.add(proxyNode);
                 }
                 objectMapper.writeValue(new File(path.toString()), proxyConfig);
-                System.out.println(BLUE + "[INFO] \t\t " + RESET + "Wrote " + proxyList.size() + " interfaces to file: " + path.toAbsolutePath());
+                System.out.println(CYAN + "[INFO] \t\t " + RESET + "Wrote " + proxyList.size() + " interfaces to file: " + path.toAbsolutePath());
             }
         } catch (IOException e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "Unable to write to file: " + e.getMessage());
@@ -453,6 +565,67 @@ public class GenerateMetadata {
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while building project fat jar: " + e.getMessage());
         }
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Finished Building project fat jar\n");
+    }
+
+    public static Map<String, String> getDependenciesList () {
+        try {
+            Map<String, String> dependenciesMap = new HashMap<>();
+            File inputFile = new File(String.valueOf(projectPath.resolve(mavenDependenciesListTxt)));
+            if (!inputFile.exists()) {
+                System.out.println(YELLOW + "[WARN] \t " + RESET + "dependencies.txt not found");
+                return null;
+            }
+            Pattern pattern = Pattern.compile("^\\[INFO\\]\\s+(.*?):(.*?):jar:(.*?):(compile|runtime|test).*");
+            BufferedReader bufferedReader = new BufferedReader(new FileReader((inputFile)));
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                if (line.trim().startsWith("[INFO]") && line.contains(":jar") ) {
+                    Matcher matcher = pattern.matcher(line);
+                    if (matcher.matches()) {
+                        String groupId = matcher.group(1);
+                        String artifactId = matcher.group(2);
+                        String version = matcher.group(3);
+                        String fullName = groupId + ":" + artifactId;
+                        dependenciesMap.put(fullName, version);
+                    }
+                }
+            }
+            dependenciesMap.entrySet().removeIf(entry ->
+                    entry.getKey().toLowerCase().contains("spring") ||
+                            entry.getValue().toLowerCase().contains("spring")
+            );
+
+            return dependenciesMap;
+        } catch (IOException e) {
+            System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while reading the dependencies.txt file: " + e.getMessage());
+        } catch (Exception e){
+            System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while reading the dependencies.txt file: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public static Map<String, String> getDependenciesRepository (Map<String, String> dependencyList) {
+        try {
+            Map<String, String> dependencyRepositoryList = new HashMap<>();
+            dependencyList.forEach((key, value) -> {
+                String[] parts = key.split(":");
+                String groupId = parts[0].replace(".", directorySlash);
+                String artifactId = parts[1];
+                String version = value;
+                String jarName = directorySlash +
+                        groupId + directorySlash +
+                        artifactId + directorySlash +
+                        version + directorySlash +
+                        artifactId + "-" + version + ".jar";
+                dependencyRepositoryList.put(key, jarName);
+//                System.out.println(CYAN + "[INFO] \t\t " + RESET + "Dependency: " + key + " -> " + jarName);
+
+            });
+            return dependencyRepositoryList;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     // ToDo : Just troll the users

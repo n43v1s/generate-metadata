@@ -39,7 +39,7 @@ public class ApplicationVariables {
      * Paths
      * */
     public static Path projectPath = Paths.get("C:\\Users\\agusilaban\\xl\\" + projectName);
-    public static Path repositoryPath = Paths.get("C:\\Users\\agusilaban\\.m2\\repository\\");
+    public static Path repositoryPath = Paths.get("C:\\Users\\agusilaban\\.m2\\repository");
     public static Path outputPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\complete");
 
 
