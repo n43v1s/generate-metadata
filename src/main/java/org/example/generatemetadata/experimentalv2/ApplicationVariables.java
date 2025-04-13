@@ -23,6 +23,8 @@ public class ApplicationVariables {
     public static boolean includeSpring = false;
     public static String directorySlash = "\\";
     static int count = 0;
+    public static String os = System.getProperty("os.name").toLowerCase();
+    public static boolean isWindows = os.contains("win");
     public static String projectArtifactId;
     public static String projectGroupId;
     public static String excludedImportPrefix;
@@ -40,7 +42,7 @@ public class ApplicationVariables {
      * File Name
      * */
     // Maven Dependency List
-    public static Path mavenDependenciesListTxtPath = projectPath.resolve("dependencies.txt");
+    public static String mavenDependenciesListTxt = "dependencies.txt";
     public static Path projectPomPath = projectPath.resolve("pom.xml");
 
     // Reflect Config

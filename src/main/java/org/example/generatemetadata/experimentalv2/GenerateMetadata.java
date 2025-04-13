@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.core.io.ClassPathResource;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -248,45 +250,46 @@ public class GenerateMetadata {
                     validOutputPaths.add(entry.getKey() + " -> " + path);
                 }
             }
-            System.out.println(CYAN + "[INFO] \t\t "+ "Registered paths:" + RESET );
-            for (String path : validPaths){System.out.println(
-                    CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
-            );}
-            for (String path : invalidPaths){System.out.println(
-                    RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
-            );}
-
-            System.out.println(CYAN + "[INFO] \t\t "+ "Registered reflection paths:" + RESET );
-            for (String path : validReflectionPaths){System.out.println(
-                    CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
-            );}
-            for (String path : invalidReflectionPaths){System.out.println(
-                    RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
-            );}
-
-            System.out.println(CYAN + "[INFO] \t\t "+ "Registered proxy paths:" + RESET );
-            for (String path : validProxyPaths){System.out.println(
-                    CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
-            );}
-            for (String path : invalidProxyPaths){System.out.println(
-                    RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
-            );}
-
-            System.out.println(CYAN + "[INFO] \t\t " + "Registered output paths:" + RESET);
-            for (String path : validOutputPaths){System.out.println(
-                    CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
-            );}
-            for (String path : invalidOutputPaths){System.out.println(
-                    RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
-            );}
-
 
             if (invalidPaths.size() > 0 ||
                     invalidReflectionPaths.size() > 0 ||
                     invalidProxyPaths.size() > 0 ||
                     invalidOutputPaths.size() > 0
             ) {
-//                System.exit(0);
+                System.out.println(CYAN + "[INFO] \t\t "+ "Registered paths:" + RESET );
+                for (String path : validPaths){System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
+                );}
+                for (String path : invalidPaths){System.out.println(
+                        RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
+                );}
+
+                System.out.println(CYAN + "[INFO] \t\t "+ "Registered reflection paths:" + RESET );
+                for (String path : validReflectionPaths){System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
+                );}
+                for (String path : invalidReflectionPaths){System.out.println(
+                        RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
+                );}
+
+                System.out.println(CYAN + "[INFO] \t\t "+ "Registered proxy paths:" + RESET );
+                for (String path : validProxyPaths){System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
+                );}
+                for (String path : invalidProxyPaths){System.out.println(
+                        RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
+                );}
+
+                System.out.println(CYAN + "[INFO] \t\t " + "Registered output paths:" + RESET);
+                for (String path : validOutputPaths){System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + GREEN + "Valid path: " + RESET + path
+                );}
+                for (String path : invalidOutputPaths){System.out.println(
+                        RED + "[ERROR] \t " + RESET + RED + "Invalid path: " + RESET + path
+                );}
+                System.exit(0);
+            } else {
+                System.out.println(CYAN + "[INFO] \t\t " + RESET + "All paths are valid");
             }
 
         } catch (Exception e){
@@ -299,7 +302,41 @@ public class GenerateMetadata {
     public static void listAllDependencies () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Listing all project dependencies");
         try {
+            File workingDir = new File(projectPath.toString());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Detected OS: " + os);
+            File outputFile = new File(workingDir, mavenDependenciesListTxt);
+            ProcessBuilder processBuilder = new ProcessBuilder();
+            if (isWindows) {
+                processBuilder.command("cmd.exe", "/c", "mvn.cmd", "dependency:list", ">", mavenDependenciesListTxt);
+            } else {
+                processBuilder.command("sh", "-c", "mvn dependency:list > " + mavenDependenciesListTxt);
+            }
+            processBuilder.directory(workingDir);
+            Process process = processBuilder.start();
+            BufferedReader errorReader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream())
+            );
 
+            String errorLine;
+            while ((errorLine = errorReader.readLine()) != null) {
+                System.out.println(RED + "[ERROR] \t " + RESET + errorLine);
+                System.err.println(errorLine);
+            }
+
+            int exitCode = process.waitFor();
+            System.out.println(
+                    CYAN + "[INFO] \t\t " + RESET + "Maven command exited with code: " + exitCode
+            );
+            if (outputFile.exists()) {
+                System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + "Dependencies written to: " + outputFile.getAbsolutePath()
+                );
+            } else {
+                System.out.println(RED + "[ERROR] \t " + RESET + "Warning: dependency.txt was not created!");
+            }
+
+        } catch (IOException | InterruptedException e) {
+            System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while listing project dependencies: " + e.getMessage());
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while listing project dependencies: " + e.getMessage());
         }
