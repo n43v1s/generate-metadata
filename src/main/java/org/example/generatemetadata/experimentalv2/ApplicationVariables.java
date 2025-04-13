@@ -25,9 +25,13 @@ public class ApplicationVariables {
     static int count = 0;
     public static String os = System.getProperty("os.name").toLowerCase();
     public static boolean isWindows = os.contains("win");
+    public static String mvnCommand = isWindows ? "mvn.cmd" : "mvn";
     public static String projectArtifactId;
     public static String projectGroupId;
+    public static String projectVersion;
     public static String excludedImportPrefix;
+    public static String fatJarName;
+    public static String fatJarFilePath;
 
 
     /**
@@ -74,7 +78,11 @@ public class ApplicationVariables {
             Model model = reader.read(new FileReader(String.valueOf(pomPath)));
             projectArtifactId = model.getArtifactId();
             projectGroupId = model.getGroupId();
-            excludedImportPrefix = "import " + projectGroupId + "." + constructProjectMainDir().values().toArray()[0] +".";
+            projectVersion  = model.getVersion();
+            fatJarName = projectArtifactId + "-" + projectVersion + ".jar";
+            fatJarFilePath = projectPath + "\\target\\" + fatJarName;
+            excludedImportPrefix = "import " + projectGroupId + "." + constructProjectMainDir().values().toArray()[0];
+            System.out.println(PURPLE + "Project Name" + RESET + " -> " + projectName);
             System.out.println(PURPLE + "Artifact Id" + RESET + " -> " + projectArtifactId);
             System.out.println(PURPLE + "Group Id" + RESET + " -> " + projectGroupId);
             System.out.println(PURPLE + "Excluded Import Prefix" + RESET + " -> " + excludedImportPrefix + "\n");

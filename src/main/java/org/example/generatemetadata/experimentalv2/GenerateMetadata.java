@@ -3,6 +3,7 @@ package org.example.generatemetadata.experimentalv2;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.example.generatemetadata.experimental.ConsoleColors;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.BufferedReader;
@@ -174,7 +175,7 @@ public class GenerateMetadata {
         }
     }
 
-    // ToDo : Path validation ()
+    // ToDo : Path validation (DONE)
     public static void isAllPathsValid () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting path validation");
         try {
@@ -298,7 +299,7 @@ public class GenerateMetadata {
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Path validation complete\n");
     }
 
-    // ToDo : Run mvn dependency:run to list all project's dependencies ()
+    // ToDo : Run mvn dependency:run to list all project's dependencies (DONE)
     public static void listAllDependencies () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Listing all project dependencies");
         try {
@@ -306,11 +307,8 @@ public class GenerateMetadata {
             System.out.println(CYAN + "[INFO] \t\t " + RESET + "Detected OS: " + os);
             File outputFile = new File(workingDir, mavenDependenciesListTxt);
             ProcessBuilder processBuilder = new ProcessBuilder();
-            if (isWindows) {
-                processBuilder.command("cmd.exe", "/c", "mvn.cmd", "dependency:list", ">", mavenDependenciesListTxt);
-            } else {
-                processBuilder.command("sh", "-c", "mvn dependency:list > " + mavenDependenciesListTxt);
-            }
+            processBuilder.command(mvnCommand, "dependency:list", ">", mavenDependenciesListTxt);
+
             processBuilder.directory(workingDir);
             Process process = processBuilder.start();
             BufferedReader errorReader = new BufferedReader(
@@ -343,11 +341,35 @@ public class GenerateMetadata {
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Finished listing all project dependencies\n");
     }
 
-    // ToDo : Run mvn clean package -DskipTests to generate fat jar ()
+    // ToDo : Run mvn clean package -DskipTests to generate fat jar (DONE)
     public static void buildFatJar () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Building project fat jar");
         try {
-
+            File workingDir = new File(projectPath.toString());
+            ProcessBuilder processBuilder = new ProcessBuilder();
+            processBuilder.command(mvnCommand, "clean", "package", "-DskipTests");
+            processBuilder.directory(workingDir);
+            Process process = processBuilder.start();
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + "Maven command exited with code: " + exitCode
+                );
+                System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + GREEN_BACKGROUND + "BUILD SUCCESS" + RESET
+                );
+            } else {
+                System.out.println(RED + "[ERROR] \t " + RESET + RED_BACKGROUND + "BUILD FAILURE" + RESET);
+                System.out.println(RED + "[ERROR] \t " + RESET + "Exit code: " + exitCode);
+            }
+            File fatjar = new File(projectPath.toString() + "\\target\\" + fatJarName);
+            if (!fatjar.exists()) {
+                System.out.println(YELLOW + "[WARN] \t\t " + RESET + "Application build success but cant find application's jar file");
+            } else {
+                System.out.println(
+                        CYAN + "[INFO] \t\t " + RESET + "Fat jar found at: " + fatjar.getAbsolutePath()
+                );
+            }
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred while building project fat jar: " + e.getMessage());
         }
@@ -368,8 +390,7 @@ public class GenerateMetadata {
                         BLUE + line2 + RESET +
                         GREEN + line3 + RESET);
             });
-            System.out.println("Metadata Generator Version : " + version);
-            System.out.println("Project Name : " + projectName + "\n");
+            System.out.println("Metadata Generator Version : " + version + "\n");
         } catch (IOException e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "Unable to load logo: " + e.getMessage());
         }
