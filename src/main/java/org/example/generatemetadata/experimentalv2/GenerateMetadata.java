@@ -42,7 +42,6 @@ public class GenerateMetadata {
 
     // ToDo : Project initialization (DONE)
     public static void initializeProject () {
-        // System.out.println(BLUE + "[RUNNING] \t " + RESET + "Initializing project");
         try {
             printLogo();
             constructProjectGroupIdAndArtifactId();
@@ -54,7 +53,6 @@ public class GenerateMetadata {
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project initialization: " + e.getMessage());
         }
-        // System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Project initialization complete\n");
     }
 
     // ToDo : Scan project for reflections and proxies (DONE)
@@ -316,15 +314,11 @@ public class GenerateMetadata {
 
             dependencyList.forEach((key, value) -> {
                 String jarPath = String.valueOf(repositoryPath + value);
-//                System.out.println("Loading JAR from: " + jarPath);
-
                 File jarFile = new File(jarPath);
                 if (!jarFile.exists()) {
                     invalidJars.add(jarPath);
-//                    System.out.println(RED + "[ERR]" + RESET + "No JAR file found at: " + jarPath);
                 } else {
                     validJars.add(jarPath);
-//                    System.out.println(GREEN + "[OK]" + RESET + " JAR file found at: " + jarPath + "\n");
                 }
             });
 
@@ -383,8 +377,8 @@ public class GenerateMetadata {
             Model model = reader.read(new FileReader(String.valueOf(pomPath)));
             String jarName = model.getArtifactId() + "-" + model.getVersion() + ".jar";
             String jarPath = projectPath + "\\target\\"+ jarName;
-            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Constructed JAR file name : " + jarName);
-            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Constructed JAR file path : " + jarPath);
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Constructed JAR file name: " + RESET + jarName);
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Constructed JAR file path: " + RESET + jarPath);
 
             FileSystem fs = FileSystems.newFileSystem(Paths.get(jarPath), (ClassLoader) null);
             Map<String, Map<String, List<String>>> libraryContents = new LinkedHashMap<>();
@@ -428,9 +422,9 @@ public class GenerateMetadata {
                 libraryContents.put(libName, contents);
                 System.out.println(CYAN + "[INFO] \t\t " + RESET + GREEN + "Processed " + libName + " (" + libraryClasses.size() + " classes, " + YELLOW + libraryInterfaces.size() + " interfaces" + CYAN + ")" + RESET);
             }
-            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total libraries found: " + libraries.size());
-            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total libraries' classes found: " + classes.size());
-            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total libraries' interfaces found: " + interfaces.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Libraries found: " + RESET + libraries.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Libraries' classes found: " + RESET + classes.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Libraries' interfaces found: " + RESET + interfaces.size());
 
             writeReflectConfig(classes, fatJarReflectionPath);
             writeProxyConfig(interfaces, fatJarProxyPath);
@@ -467,7 +461,6 @@ public class GenerateMetadata {
                         if (!metadata.containsKey(name)) {
                             metadata.put(name, node);
                         } else {
-//                            System.out.println("  Duplicate entry skipped: " + name);
                             duplicatedEntries += 1;
                         }
                     } else {
@@ -482,8 +475,8 @@ public class GenerateMetadata {
             metadata.values().stream()
                     .sorted(Comparator.comparing(key -> key.get("name").asText()))
                     .forEach(arrayNode::add);
-            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total unique entries found: " + metadata.size());
-            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total duplicated entries: " + duplicatedEntries);
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Total unique entries found: " + RESET + metadata.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + PURPLE + "Total duplicated entries: " + RESET + duplicatedEntries);
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(String.valueOf(reflectConfigFile)), arrayNode);
         } catch (IOException e) {
             System.out.println("Error reading file: ");
@@ -523,7 +516,7 @@ public class GenerateMetadata {
                     reflection.add(classNode);
                 }
                 objectMapper.writeValue(new File(path.toString()), reflection);
-                System.out.println(CYAN + "[INFO] \t\t " + RESET + "Wrote " + classList.size() + " classes to file: " + path.toAbsolutePath());
+                System.out.println(CYAN + "[INFO] \t\t " + RESET + BLUE_UNDERLINED + "Wrote " + classList.size() + " classes to file: " + RESET + path.toAbsolutePath());
             }
         } catch (IOException e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "Unable to write to file: " + e.getMessage());
@@ -547,7 +540,7 @@ public class GenerateMetadata {
                     proxyConfig.add(proxyNode);
                 }
                 objectMapper.writeValue(new File(path.toString()), proxyConfig);
-                System.out.println(CYAN + "[INFO] \t\t " + RESET + "Wrote " + proxyList.size() + " interfaces to file: " + path.toAbsolutePath());
+                System.out.println(CYAN + "[INFO] \t\t " + RESET + YELLOW_UNDERLINED + "Wrote " + proxyList.size() + " interfaces to file: " + RESET + path.toAbsolutePath());
             }
         } catch (IOException e) {
             System.out.println(RED + "[ERROR] \t " + RESET + "Unable to write to file: " + e.getMessage());
@@ -806,8 +799,6 @@ public class GenerateMetadata {
                         version + directorySlash +
                         artifactId + "-" + version + ".jar";
                 dependencyRepositoryList.put(key, jarName);
-//                System.out.println(CYAN + "[INFO] \t\t " + RESET + "Dependency: " + key + " -> " + jarName);
-
             });
             return dependencyRepositoryList;
         } catch (Exception e) {
