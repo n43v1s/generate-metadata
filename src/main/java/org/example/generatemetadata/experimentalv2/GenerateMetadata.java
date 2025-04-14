@@ -7,16 +7,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
-import org.example.generatemetadata.experimental.ConsoleColors;
+import org.eclipse.sisu.space.asm.ClassReader;
+import org.eclipse.sisu.space.asm.Opcodes;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.*;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.Buffer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -51,8 +49,8 @@ public class GenerateMetadata {
             constructProjectMainDir();
 
             isAllPathsValid();
-            listAllDependencies();
-            buildFatJar();
+//            listAllDependencies();
+//            buildFatJar();
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project initialization: " + e.getMessage());
         }
@@ -380,7 +378,62 @@ public class GenerateMetadata {
     public static void scanProjectFatJar () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting project fat jar scan");
         try {
+            Path pomPath = Paths.get(projectPath.toString()+ "\\pom.xml");
+            MavenXpp3Reader reader = new MavenXpp3Reader();
+            Model model = reader.read(new FileReader(String.valueOf(pomPath)));
+            String jarName = model.getArtifactId() + "-" + model.getVersion() + ".jar";
+            String jarPath = projectPath + "\\target\\"+ jarName;
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Constructed JAR file name : " + jarName);
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Constructed JAR file path : " + jarPath);
 
+            FileSystem fs = FileSystems.newFileSystem(Paths.get(jarPath), (ClassLoader) null);
+            Map<String, Map<String, List<String>>> libraryContents = new LinkedHashMap<>();
+            List<String> classes = new ArrayList<>();
+            List<String> interfaces = new ArrayList<>();
+            List<Path> libraries = Files.list(fs.getPath("BOOT-INF/lib"))
+                    .filter(p -> p.toString().endsWith(".jar"))
+                    .filter(q -> includeSpring ? !q.toString().contains("springIncluded") : !q.toString().contains("spring"))
+                    .collect(Collectors.toList());
+            for (Path library : libraries) {
+                String libName = library.getFileName().toString();
+                List<String> libraryClasses = new ArrayList<String>();
+                List<String> libraryInterfaces = new ArrayList<String>();
+                try (FileSystem libFs = FileSystems.newFileSystem(library, (ClassLoader) null)) {
+                    Files.walk(libFs.getPath("/"))
+                            .filter(p -> p.toString().endsWith(".class"))
+                            .filter(q -> !q.toString().contains("META-INF"))
+                            .forEach(classFile -> {
+                                try (InputStream is = Files.newInputStream(classFile)) {
+                                    ClassReader classReader = new ClassReader(is);
+                                    String className = classFile.toString()
+                                            .replace("/", ".")
+                                            .replace(".class", "")
+                                            .substring(1);
+                                    if ((classReader.getAccess() & Opcodes.ACC_INTERFACE) != 0) {
+                                        interfaces.add(className);
+                                        libraryInterfaces.add(className);
+                                    } else {
+                                        classes.add(className);
+                                        libraryClasses.add(className);
+                                    }
+                                } catch (IOException e) {
+                                    System.err.println(RED + "Error reading: " + classFile + RESET);
+                                }
+                            });
+                }
+
+                Map<String, List<String>> contents = new HashMap<>();
+                contents.put("classes", libraryInterfaces);
+                contents.put("interfaces", libraryClasses);
+                libraryContents.put(libName, contents);
+                System.out.println(CYAN + "[INFO] \t\t " + RESET + GREEN + "Processed " + libName + " (" + libraryClasses.size() + " classes, " + YELLOW + libraryInterfaces.size() + " interfaces" + CYAN + ")" + RESET);
+            }
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total libraries found: " + libraries.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total libraries' classes found: " + classes.size());
+            System.out.println(CYAN + "[INFO] \t\t " + RESET + "Total libraries' interfaces found: " + interfaces.size());
+
+            writeReflectConfig(classes, fatJarReflectionPath);
+            writeProxyConfig(interfaces, fatJarProxyPath);
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project fat jar scan: " + e.getMessage());
         }
@@ -399,6 +452,7 @@ public class GenerateMetadata {
                     String.valueOf(dependenciesReflectionPath),
                     String.valueOf(importReflectionPath),
                     String.valueOf(pomReflectionPath),
+                    String.valueOf(fatJarReflectionPath)
             };
             Map<String, JsonNode> metadata = new HashMap<>();
             for (String filePath : files) {
