@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.example.generatemetadata.experimental.ConsoleColors;
 import org.springframework.core.io.ClassPathResource;
 
@@ -48,8 +51,8 @@ public class GenerateMetadata {
             constructProjectMainDir();
 
             isAllPathsValid();
-//            listAllDependencies();
-//            buildFatJar();
+            listAllDependencies();
+            buildFatJar();
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project initialization: " + e.getMessage());
         }
@@ -121,6 +124,8 @@ public class GenerateMetadata {
             String excludedPrefix = excludedImportPrefix;
             Map<String, Set<String>> importClassMap = new HashMap<>();
             Map<String, Set<String>> importInterfaceMap = new HashMap<>();
+            Map<String, String> dependencyList = getDependenciesRepository(getDependenciesList());
+
             Files.walk(projectPath)
                     .filter(path -> path.toString().endsWith(".java"))
                     .forEach(path -> {
@@ -143,12 +148,30 @@ public class GenerateMetadata {
                             System.err.println("Error reading file: " + path);
                         }
                     });
+
             importClassMap.keySet().stream()
                     .sorted()
                     .forEach(imp -> {
+//                        System.out.println(imp);
                         importClassMap.get(imp);
                         classList.add(imp);
                     });
+
+//            dependencyList.forEach((key, value) -> {
+//                System.out.println("key -> " + key);
+//                System.out.println("value -> " + value);
+//            });
+
+            for (String importedClass : classList){
+                List<String> matchedDependency = new ArrayList<>();
+                importedClass.replace("import ", "");
+                String[] importedClassParts = importedClass.split(".");
+
+                dependencyList.forEach((key, value) -> {
+                    key.contains(importedClass);
+                });
+            }
+
             writeReflectConfig(classList, importReflectionPath);
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project imports scan: " + e.getMessage());
@@ -156,18 +179,128 @@ public class GenerateMetadata {
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Project imports scan finished\n");
     }
 
-    // ToDo : Scan project's POM for reflections and proxies ()
+    // ToDo : Scan project's POM for reflections and proxies (DONE)
     public static void scanProjectPom () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting project POM scan");
         try {
+            Path pomPath = Paths.get(projectPomPath.toUri());
+            MavenXpp3Reader reader = new MavenXpp3Reader();
+            Model model = reader.read(new FileReader(String.valueOf(pomPath)));
+            List<Dependency> dependencies = model.getDependencies();
+            List<String> unversionedLibraries = new ArrayList<>();
+            List<String> versionedLibraries = new ArrayList<>();
+            List<String> validJars = new ArrayList<>();
+            List<String> invalidJars = new ArrayList<>();
+            List<String> validClassList = new ArrayList<>();
+            List<String> invalidClassList = new ArrayList<>();
+            List<String> interfaceList = new ArrayList<>();
+            Map<String, String> dependencyList = getDependenciesList();
+            Map<String, Map<String, String>> completeDependenciesMap = new HashMap<>();
+            String jarPath = "";
+            String dependencyPath = "";
 
+            String fullJarPath = "";
+            String libraryName = "";
+            String jarVersion = "";
+            for (Dependency dep : dependencies) {
+                if (dep.getGroupId().startsWith("org.springframework") || dep.getGroupId().startsWith("org.springdoc")) {
+                    continue;
+                }
+                if (dep.getVersion() == null || dep.getVersion().startsWith("${")) {
+                    libraryName = dep.getGroupId().toString() + ":" + dep.getArtifactId().toString();
+                    unversionedLibraries.add(libraryName);
+                } else {
+                    fullJarPath = dep.getGroupId().toString() + ":" + dep.getArtifactId().toString() + ":" + dep.getVersion();
+                    versionedLibraries.add(fullJarPath);
+                }
+            }
+
+            System.out.println(YELLOW + "[WARN]\t\t " + "[UNVERSIONED DEPENDENCY]" + RESET );
+            for (String library : unversionedLibraries){
+                System.out.println(CYAN + "[INFO]\t\t " + RESET + RED + library + RESET);
+                String newLibrary = "";
+                jarVersion = dependencyList.get(library);
+                if (jarVersion == null){
+                    System.out.println(RED + "\t\t\t There is matched dependency" + RESET);
+                    System.out.println(RED + "\t\t\t " + library + ":" + jarVersion + RESET);
+                } else {
+                    newLibrary = library + ":" + jarVersion;
+                    versionedLibraries.add(newLibrary);
+                    System.out.println(CYAN + "[INFO]\t\t " + RESET + "Unversioned dependency's version already discovered on list");
+                    System.out.println(CYAN + "[INFO]\t\t " + RESET + GREEN + library + ":" + jarVersion + RESET);
+                }
+            }
+
+            for (String libraryPath : versionedLibraries) {
+                String[] parts = libraryPath.split(":");
+                if (parts.length != 3) {
+                    System.out.println("\t Invalid format. \n \t Expected Format: groupId:artifactId:version");
+                }
+                String groupId = parts[0].replace('.', '\\');
+                String artifactId = parts[1];
+                String version = parts[2];
+                dependencyPath = "\\" + groupId + "\\" + artifactId + "\\" + version + "\\" + artifactId + "-" + version + ".jar";
+
+                jarPath = repositoryPath.toString().replace("\\", "/") + dependencyPath.toString().replace("\\", "/");
+
+                File jarFile = new File(jarPath);
+                if (!jarFile.exists()) {
+                    invalidJars.add(jarPath);
+                    System.out.println(RED + "[ERROR]\t\t" + RESET + RED + "[ERR]" + RESET + "No JAR file found at: " + jarPath);
+                } else {
+                    validJars.add(jarPath);
+                    System.out.println(CYAN + "[INFO]\t\t " + RESET + GREEN + "[OK]" + RESET + "JAR file found at: " + jarPath);
+                }
+            }
+
+            for (String validJar : validJars) {
+                File jarFile = new File(validJar);
+                try {
+                    JarFile jar = new JarFile(jarFile);
+                    Enumeration<JarEntry> entriesEnum = jar.entries();
+                    URLClassLoader classLoader = new URLClassLoader(
+                            new URL[]{jarFile.toURI().toURL()},
+                            Thread.currentThread().getContextClassLoader());
+
+                    Collections.list(entriesEnum).stream()
+                            .filter(entry -> entry.getName().endsWith(".class"))
+                            .forEach(entry -> {
+                                String className = entry.getName().replace("/", ".").replace(".class", "");
+                                Map<String, String> methodList = new HashMap<>();
+                                try {
+                                    Class<?> clazz = classLoader.loadClass(className);
+                                    if (clazz.isInterface()) {
+                                        interfaceList.add(clazz.getName());
+                                    } else {
+                                        validClassList.add(clazz.getName());
+                                        Arrays.stream(clazz.getDeclaredMethods())
+                                                .forEach(method -> {
+                                                    String params = Arrays.stream(method.getParameters())
+                                                            .map(p -> p.getType().getClass().getName()).collect(Collectors.toList()).toString();
+                                                    methodList.put(method.getName(), params);
+                                                });
+                                        completeDependenciesMap.put(className, methodList);
+                                    }
+                                } catch (Throwable e) {
+                                    invalidClassList.add(className);
+                                }
+                            });
+                    count += completeDependenciesMap.size();
+                }
+                catch (IOException e) {
+                    System.err.println("Error reading JAR file: " + e.getMessage());
+                }
+            }
+
+            writeReflectConfig(validClassList, pomReflectionPath);
+            writeProxyConfig(interfaceList, pomProxyPath);
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project POM scan: " + e.getMessage());
         }
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Project pom POM finished\n");
     }
 
-    // ToDo : Scan project's dependencies for reflections and proxies ()
+    // ToDo : Scan project's dependencies for reflections and proxies (DONE)
     public static void scanProjectDependencies () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Starting project dependencies scan");
         try {
@@ -190,10 +323,10 @@ public class GenerateMetadata {
                 File jarFile = new File(jarPath);
                 if (!jarFile.exists()) {
                     invalidJars.add(jarPath);
-//                    System.out.println(ConsoleColors.RED + "[ERR]" + ConsoleColors.RESET + "No JAR file found at: " + jarPath);
+//                    System.out.println(RED + "[ERR]" + RESET + "No JAR file found at: " + jarPath);
                 } else {
                     validJars.add(jarPath);
-//                    System.out.println(ConsoleColors.GREEN + "[OK]" + ConsoleColors.RESET + " JAR file found at: " + jarPath + "\n");
+//                    System.out.println(GREEN + "[OK]" + RESET + " JAR file found at: " + jarPath + "\n");
                 }
             });
 
@@ -254,7 +387,7 @@ public class GenerateMetadata {
         System.out.println(GREEN + "[COMPLETE] \t " + RESET + "Project fat jar scan finished\n");
     }
 
-    // ToDo : Merge all output reflect configs ()
+    // ToDo : Merge all output reflect configs (DONE)
     public static void configureReflectConfig () {
         System.out.println(BLUE + "[RUNNING] \t " + RESET + "Configuring reflection metadata");
         try {
@@ -264,7 +397,8 @@ public class GenerateMetadata {
             String[] files = {
                     String.valueOf(projectReflectionPath),
                     String.valueOf(dependenciesReflectionPath),
-                    String.valueOf(importReflectionPath)
+                    String.valueOf(importReflectionPath),
+                    String.valueOf(pomReflectionPath),
             };
             Map<String, JsonNode> metadata = new HashMap<>();
             for (String filePath : files) {
