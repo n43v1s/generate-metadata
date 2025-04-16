@@ -48,8 +48,8 @@ public class GenerateMetadata {
             constructProjectMainDir();
 
             isAllPathsValid();
-//            listAllDependencies();
-//            buildFatJar();
+            listAllDependencies();
+            buildFatJar();
         } catch (Exception e){
             System.out.println(RED + "[ERROR] \t " + RESET + "An error occurred during project initialization: " + e.getMessage());
         }

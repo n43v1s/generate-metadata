@@ -19,7 +19,7 @@ public class ApplicationVariables {
     /**
      * Properties
      * */
-    public static String projectName = "direct-debit-account";
+    public static String projectName = "recharge-history";
     public static String version = "1.0.0-Alpha";
     public static boolean includeSpring = false;
     public static String directorySlash = "\\";
@@ -40,7 +40,7 @@ public class ApplicationVariables {
      * */
     public static Path projectPath = Paths.get("C:\\Users\\agusilaban\\xl\\" + projectName);
     public static Path repositoryPath = Paths.get("C:\\Users\\agusilaban\\.m2\\repository");
-    public static Path outputPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\complete");
+    public static Path outputPath = Paths.get("C:\\Users\\agusilaban\\Downloads\\agus\\generate-metadata");
 
 
     /**
@@ -130,7 +130,6 @@ public class ApplicationVariables {
         }
         return result;
     }
-
     public static Map<String, String>findMainClass () {
         Map<String, String> result = new HashMap<>();
         try {
